@@ -42,7 +42,7 @@ public class SampleApplication {
         PreparedStatement prepared =  session.prepare(stmt2);
         BoundStatement bound1 = prepared.bind();
         bound1 = bound1.setInt(0, 10);
-        bound1 = bound1.setInt(1,20);
+        bound1 = bound1.setInt(1, 20);
         // Async
         try {
             CompletionStage<AsyncResultSet> asyncResult = session.executeAsync(bound1);
