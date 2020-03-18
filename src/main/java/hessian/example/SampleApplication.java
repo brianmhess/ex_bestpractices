@@ -34,6 +34,7 @@ public class SampleApplication {
         // Insert some data
         // Simple
         SimpleStatement stmt1 = SimpleStatement.newInstance("INSERT INTO "+ks+"."+tbl+"(pkey,x) VALUES (1,2)");
+        stmt1 = stmt1.setIdempotent(true);
         session.execute(stmt1);
 
         // Prepared
