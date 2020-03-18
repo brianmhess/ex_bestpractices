@@ -1,5 +1,6 @@
 package hessian.example;
 
+import com.datastax.dse.driver.api.core.cql.reactive.ReactiveResultSet;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.*;
@@ -7,6 +8,7 @@ import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import reactor.core.publisher.Flux;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletionStage;
 
 public class SampleApplication {
     public static void main(String[] args) {
@@ -42,7 +44,8 @@ public class SampleApplication {
         bound1 = bound1.setInt(1,20);
         // Async
         try {
-            session.executeAsync(bound1).toCompletableFuture().get();
+            CompletionStage<AsyncResultSet> asyncResult = session.executeAsync(bound1);
+            asyncResult.toCompletableFuture().get();
         }
         catch (Exception e) {
             // process exception
@@ -54,7 +57,8 @@ public class SampleApplication {
         bound2 = bound2.unset(1); // redundant, but showing for demonstration
         bound2 = bound2.setIdempotent(true); // set idempotency
         bound2 = bound2.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
-        Flux.from(session.executeReactive(bound2)).blockLast();
+        ReactiveResultSet reactiveResult = session.executeReactive(bound2);
+        Flux.from(reactiveResult).blockLast();
 
         // Batch
         BatchStatementBuilder batchBuilder = BatchStatement.builder(BatchType.UNLOGGED);
