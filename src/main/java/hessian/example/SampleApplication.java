@@ -1,9 +1,12 @@
 package hessian.example;
 
 import com.datastax.dse.driver.api.core.cql.reactive.ReactiveResultSet;
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.*;
+import com.datastax.oss.driver.api.core.servererrors.QueryExecutionException;
+import com.datastax.oss.driver.api.core.servererrors.QueryValidationException;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import reactor.core.publisher.Flux;
 import com.codahale.metrics.MetricRegistry;
@@ -73,7 +76,13 @@ public class SampleApplication {
         // Simple
         SimpleStatement stmt1 = SimpleStatement.newInstance("INSERT INTO "+ks+"."+tbl+"(pkey,x) VALUES (1,2)");
         stmt1 = stmt1.setIdempotent(true);
-        session.execute(stmt1);
+        try {
+            session.execute(stmt1);
+        }
+        catch (QueryExecutionException | QueryValidationException | AllNodesFailedException ex) {
+            // Handle query failure
+            throw new RuntimeException("Error inserting first data");
+        }
 
         // Prepared
         // Using positional bind markers
@@ -111,14 +120,35 @@ public class SampleApplication {
         batchBuilder.addStatement(bound3);
         batchBuilder.addStatement(bound4);
         BatchStatement batch = batchBuilder.build();
-        session.execute(batch);
+        try {
+            session.execute(batch);
+        }
+        catch (QueryExecutionException qee) {
+            // Handle query timeout - let's retry it
+            try {
+                session.execute(batch);
+            }
+            catch (QueryExecutionException | QueryValidationException | AllNodesFailedException ex) {
+                // Handle query failure
+                throw new RuntimeException("Error second try inserting data");
+            }
+
+        }
+        catch (QueryValidationException | AllNodesFailedException ex) {
+            // Handle query failure
+            throw new RuntimeException("Error inserting data");
+        }
+
 
         // Query Builder
         SimpleStatement read = QueryBuilder.selectFrom(ks, tbl)
                 .columns("pkey", "x").build();
-        ResultSet resultSet = session.execute(read);
-        for (Row row : resultSet) {
-            System.out.println("pkey: " + row.getInt("pkey") + ", x: " + row.getInt("x"));
+        // Using a helper method to execute DML
+        ResultSet resultSet = executeDml(session, read, "Error reading data");
+        if (null != resultSet) {
+            for (Row row : resultSet) {
+                System.out.println("pkey: " + row.getInt("pkey") + ", x: " + row.getInt("x"));
+            }
         }
 
         // Cleanup
@@ -146,5 +176,17 @@ public class SampleApplication {
             }
         }
         return true;
+    }
+
+    private static ResultSet executeDml(CqlSession session, Statement query, String errorString) {
+        ResultSet resultSet = null;
+        try {
+            resultSet = session.execute(query);
+        }
+        catch (QueryExecutionException | QueryValidationException | AllNodesFailedException ex) {
+            // Handle query failure
+            throw new RuntimeException(errorString);
+        }
+        return resultSet;
     }
 }
