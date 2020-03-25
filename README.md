@@ -1,5 +1,5 @@
 # DataStax Java Driver Best Practices Example
-This example is a companion to the Best Practices for the DataStax Java Driver.
+This example is a companion to the Best Practices for the DataStax Java Driver document.
 
 ## Editing the Config
 You will need to edit the `src/main/resources/applications.conf` file with the
